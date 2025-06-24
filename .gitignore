@@ -1,0 +1,58 @@
+# --- Môi trường ảo Python ---
+# Bỏ qua các thư mục môi trường ảo phổ biến
+venv/
+env/
+.venv/
+.env/
+
+# --- Các file tạm và file biên dịch của Python ---
+# Bỏ qua thư mục cache
+__pycache__/
+# Bỏ qua các file Python đã được biên dịch
+*.pyc
+*.pyo
+*.pyd
+
+# --- Cấu hình của trình soạn thảo code (IDE) ---
+# Visual Studio Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# --- Các file hệ thống của macOS ---
+# Bỏ qua các file lưu trữ tùy chỉnh của Finder
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Icon must be committed
+Icon
+
+# Thumbnails
+._*
+
+# Files that might appear on external disk
+.Spotlight-V100
+.Trashes
+
+# --- Dữ liệu và các file của dự án ---
+# Bỏ qua các file dữ liệu lớn trong thư mục data
+# Chúng ta không muốn đẩy các file .pcap lên Git
+/data/*
+!/data/README.md
+
+# Bỏ qua các file log
+*.log
+logs/
+
+# --- Các file tạm của Jupyter Notebook ---
+.ipynb_checkpoints
+
+# --- Các file cài đặt và gói ---
+*.egg-info/
+dist/
+build/
+*.egg

@@ -1,0 +1,81 @@
+# Phiên bản của cú pháp Docker Compose
+version: '3.8'
+
+# Định nghĩa các mạng ảo để các container có thể giao tiếp với nhau
+networks:
+  ddos-net:
+    driver: bridge
+
+# Định nghĩa các dịch vụ (container) sẽ được chạy
+services:
+  # Dịch vụ Zookeeper - Bắt buộc cho Kafka
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.3
+    container_name: zookeeper
+    networks:
+      - ddos-net
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  # Dịch vụ Kafka - Message Broker
+  kafka:
+    image: confluentinc/cp-kafka:7.5.3
+    container_name: kafka
+    networks:
+      - ddos-net
+    ports:
+      # Port 29092 dùng để các ứng dụng từ máy thật (host) kết nối vào (ví dụ script Python)
+      - "29092:29092"
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      # Cấu hình listener: 
+      # - INTERNAL là cho giao tiếp bên trong Docker (giữa Spark và Kafka)
+      # - EXTERNAL là cho giao tiếp từ bên ngoài (máy thật) vào
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:29092
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      # Tự động tạo topic khi khởi động
+      KAFKA_CREATE_TOPICS: "ddos_packets_raw:1:1" # Tên topic:số partition:số replica
+
+  # Dịch vụ Spark Master - Điều phối viên
+  spark-master:
+    image: bitnami/spark:3.5
+    container_name: spark-master
+    networks:
+      - ddos-net
+    ports:
+      - "8080:8080" # Port để truy cập Spark Web UI
+      - "7077:7077"
+    volumes:
+      # Mount thư mục code của bạn vào trong container
+      - ./spark_app:/opt/bitnami/spark/app
+    environment:
+      - SPARK_MODE=master
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+
+  # Dịch vụ Spark Worker - "Công nhân" xử lý dữ liệu
+  spark-worker:
+    image: bitnami/spark:3.5
+    container_name: spark-worker
+    networks:
+      - ddos-net
+    depends_on:
+      - spark-master
+    volumes:
+      # Mount thư mục code của bạn vào trong container
+      - ./spark_app:/opt/bitnami/spark/app
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077 # Chỉ cho worker biết master ở đâu
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
