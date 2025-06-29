@@ -22,7 +22,7 @@ services:
     ports:
       - "29092:29092"
     volumes:
-      - .kafka_producer:/home/appuser
+      - ./kafka_producer:/home/appuser
     depends_on:
       - zookeeper
     environment:
