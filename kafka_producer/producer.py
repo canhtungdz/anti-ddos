@@ -4,7 +4,8 @@ import time
 
 # Kafka topic và server
 TOPIC = "ddos_packets_raw"
-KAFKA_SERVER = "localhost:29092"
+KAFKA_SERVER = "kafka:9092"
+# KAFKA_SERVER = "localhost:29092"  # Thay đổi theo cấu hình của bạn
 
 # Tạo Kafka Producer
 producer = KafkaProducer(
@@ -13,7 +14,7 @@ producer = KafkaProducer(
 )
 
 # Đọc danh sách gói tin từ file JSON
-with open("packets.json", "r", encoding="utf-8") as f:
+with open("kafka_producer/packets.json", "r", encoding="utf-8") as f:
     packets = json.load(f)
 
 # Sắp xếp theo thời gian gửi
