@@ -65,3 +65,18 @@ services:
       - SPARK_MODE=worker
       - SPARK_MASTER_URL=spark://spark-master:7077
       - HOME=/tmp
+      - SPARK_MASTER_URL=spark://spark-master:7077 # Chỉ cho worker biết master ở đâu
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+  producer:
+    build:
+      context: ./producer          # Thư mục chứa Dockerfile, script, v.v.
+    container_name: kafka-producer
+    depends_on:
+      - kafka
+    networks:
+      - ddos-net
+    volumes:
+      - ./data:/data  # Mount dữ liệu từ người tiền xử lý    
