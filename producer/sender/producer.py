@@ -4,7 +4,9 @@ from kafka import KafkaProducer
 import pandas as pd
 import os
 
-FILE_PATH = "/data/raw-packets.json"
+FILE_PATH = "/app/data/raw-packets.json"
+for i in range(10):
+    print(i)
 
 producer = KafkaProducer(
     bootstrap_servers="kafka:9092",
@@ -22,7 +24,7 @@ if "timestamp" in df.columns:
 for idx, row in df.iterrows():
     message = row.to_dict()
     producer.send("ddos_packets_raw", value=message)
-    print(f"✔ Gửi dòng {idx + 1}: {message}")
+    # print(f"✔ Gửi dòng {idx + 1}: {message}")
     time.sleep(0.01)
 
 producer.flush()
