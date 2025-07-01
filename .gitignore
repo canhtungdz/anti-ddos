@@ -22,6 +22,10 @@ __pycache__/
 !.vscode/extensions.json
 *.code-workspace
 
+# --- PyCharm ---
+.idea/
+*.iml
+
 # --- Các file hệ thống của macOS ---
 # Bỏ qua các file lưu trữ tùy chỉnh của Finder
 .DS_Store
