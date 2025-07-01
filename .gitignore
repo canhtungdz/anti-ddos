@@ -64,4 +64,6 @@ build/
 # --- Các file tạm ---
 tmp/
 temp/
+/tmp
+
 
