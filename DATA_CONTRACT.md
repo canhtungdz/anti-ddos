@@ -14,7 +14,7 @@ Tài liệu mô tả cấu trúc dữ liệu chuẩn trong file JSON được s�
   "protocol": 17,                  // (int) Giao thức (17 = UDP, 6 = TCP)
   "src_port": 62466,               // (int) Cổng nguồn
   "dst_port": 58306,               // (int) Cổng đích
-  "udp_len": 524                   // (int) Độ dài phần UDP payload
+  "udp_len": 524,                   // (int) Độ dài phần UDP payload
   "tcp_seq": 5243,                 // (int) Số thứ tự TCP (Sequence Number)
   "tcp_ack": 2084,                 // (int) Số xác nhận TCP (Acknowledgment Number)
   "tcp_len": 879,                  // (int) Độ dài dữ liệu TCP payload
