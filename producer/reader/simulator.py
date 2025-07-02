@@ -39,7 +39,7 @@ def packet_to_json(pkt):
         except:
             return 0
 
-    # ✅ Tính đúng TCP payload length như Wireshark
+    # ✅ Tính TCP payload length
     if tcp_layer:
         try:
             ip_total_len = ip_layer.len
@@ -51,6 +51,12 @@ def packet_to_json(pkt):
     else:
         tcp_payload_len = 0
 
+    # ✅ Tính UDP payload length (UDP header luôn 8 bytes)
+    if udp_layer:
+        udp_len = max(0, get_attr(udp_layer, 'len', 0) - 8)
+    else:
+        udp_len = 0
+
     return {
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f"),
         "src_ip": ip_layer.src,
@@ -59,7 +65,7 @@ def packet_to_json(pkt):
         "protocol": protocol,
         "src_port": get_attr(tcp_layer or udp_layer, 'sport', 0),
         "dst_port": get_attr(tcp_layer or udp_layer, 'dport', 0),
-        "udp_len": get_attr(udp_layer, 'len', 0),
+        "udp_len": udp_len,
         "tcp_seq": get_attr(tcp_layer, 'seq', 0),
         "tcp_ack": get_attr(tcp_layer, 'ack', 0),
         "tcp_win": get_attr(tcp_layer, 'window', 0),
@@ -95,7 +101,7 @@ for pkt_data, pkt_metadata in RawPcapReader(pcap_file):
         if not data:
             continue
 
-        producer.send('ddos_packets5_raw', value=data)
+        producer.send('ddos_packets15_raw', value=data)
         print(f"📤 Gửi lúc: {data['timestamp']}")
         sent_count += 1
 
