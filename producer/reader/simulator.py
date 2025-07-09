@@ -1,21 +1,23 @@
 import json
 import time
+import os
 from datetime import datetime
-from kafka import KafkaProducer
 from scapy.utils import RawPcapReader
 from scapy.layers.l2 import Ether
 from scapy.layers.inet import IP, TCP, UDP
 
-# ⚙️ Kafka Producer
-producer = KafkaProducer(
-    bootstrap_servers='localhost:29092',
-    value_serializer=lambda v: json.dumps(v).encode('utf-8')
-)
-
-pcap_file = 'SAT-01-12-2018_0817.pcap'
+# ⚙️ Configuration
+pcap_file = '/Users/nguyencanhtung/Program/anti-ddos/data/SAT-01-12-2018_0817.pcap'
+output_dir = '/Users/nguyencanhtung/Program/anti-ddos/data/stream_input'  # Thư mục output cho Spark
+batch_size = 100  # Số packet per file
 start_time = None
 real_start = time.perf_counter()
 sent_count = 0
+batch_count = 0
+current_batch = []
+
+# Tạo thư mục output nếu chưa có
+os.makedirs(output_dir, exist_ok=True)
 
 def packet_to_json(pkt):
     ip_layer = pkt.getlayer(IP)
@@ -58,9 +60,9 @@ def packet_to_json(pkt):
         udp_len = 0
 
     return {
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f"),
-        "src_ip": ip_layer.src,
-        "dst_ip": ip_layer.dst,
+        "timestamp": datetime.now().isoformat() + "+00:00",  # ISO format với timezone
+        "src_ip": str(ip_layer.src),
+        "dst_ip": str(ip_layer.dst),
         "length": len(pkt),
         "protocol": protocol,
         "src_port": get_attr(tcp_layer or udp_layer, 'sport', 0),
@@ -80,8 +82,33 @@ def packet_to_json(pkt):
         "fin_flag": get_flag(tcp_layer.flags, 'F') if tcp_layer else 0,
     }
 
-# 🚀 Gửi dữ liệu từ pcap
-print("🚀 Bắt đầu gửi gói tin từ pcap...")
+def save_batch_to_file(batch_data, batch_num):
+    """Lưu batch data thành file JSON Lines"""
+    filename = f"batch_{batch_num:04d}.json"
+    filepath = os.path.join(output_dir, filename)
+    
+    # ✅ Lưu dạng JSON Lines (mỗi dòng 1 JSON object)
+    with open(filepath, 'w') as f:
+        for record in batch_data:
+            f.write(json.dumps(record) + '\n')
+    
+    print(f"💾 Saved {len(batch_data)} records to {filename}")
+
+def save_batch_to_file_array(batch_data, batch_num):
+    """Lưu batch data thành file JSON Array (nếu muốn format [{},{}])"""
+    filename = f"batch_array_{batch_num:04d}.json"
+    filepath = os.path.join(output_dir, filename)
+    
+    # ✅ Lưu dạng JSON Array
+    with open(filepath, 'w') as f:
+        json.dump(batch_data, f, indent=2)
+    
+    print(f"💾 Saved {len(batch_data)} records to {filename} (Array format)")
+
+# 🚀 Xử lý dữ liệu từ pcap
+print(f"🚀 Bắt đầu đọc gói tin từ {pcap_file}...")
+print(f"📁 Output directory: {output_dir}")
+print(f"📦 Batch size: {batch_size} packets per file")
 
 for pkt_data, pkt_metadata in RawPcapReader(pcap_file):
     try:
@@ -90,10 +117,10 @@ for pkt_data, pkt_metadata in RawPcapReader(pcap_file):
         if start_time is None:
             start_time = pkt_time
 
-        # ⏱ Mô phỏng thời gian thực
-        delay = (pkt_time - start_time) - (time.perf_counter() - real_start)
-        if delay > 0:
-            time.sleep(delay)
+        # ⏱ Mô phỏng thời gian thực (tùy chọn - có thể bỏ để xử lý nhanh hơn)
+        # delay = (pkt_time - start_time) - (time.perf_counter() - real_start)
+        # if delay > 0:
+        #     time.sleep(delay)
 
         pkt = Ether(pkt_data)
         data = packet_to_json(pkt)
@@ -101,13 +128,44 @@ for pkt_data, pkt_metadata in RawPcapReader(pcap_file):
         if not data:
             continue
 
-        producer.send('ddos_packets15_raw', value=data)
-        print(f"📤 Gửi lúc: {data['timestamp']}")
+        # Thêm vào batch hiện tại
+        current_batch.append(data)
         sent_count += 1
+
+        # Nếu batch đầy, lưu file
+        if len(current_batch) >= batch_size:
+            save_batch_to_file(current_batch, batch_count)
+            
+            # ✅ Tùy chọn: Lưu thêm file JSON Array format
+            # save_batch_to_file_array(current_batch, batch_count)
+            
+            current_batch = []
+            batch_count += 1
+            
+            # ✅ Delay giữa các batch để simulate real-time stream
+            time.sleep(1)  # 1 giây delay giữa các batch
+
+        if sent_count % 100 == 0:
+            print(f"📊 Processed {sent_count} packets...")
 
     except Exception as e:
         print(f"❌ Bỏ qua gói lỗi: {e}")
         continue
 
-producer.flush()
-print(f"🎉 Đã gửi tổng cộng {sent_count} gói tin.")
+# ✅ Lưu batch cuối cùng (nếu có)
+if current_batch:
+    save_batch_to_file(current_batch, batch_count)
+    batch_count += 1
+
+print(f"🎉 Hoàn thành!")
+print(f"📊 Total packets processed: {sent_count}")
+print(f"📁 Total files created: {batch_count}")
+print(f"📂 Files saved in: {output_dir}")
+
+# ✅ Liệt kê các file đã tạo
+print("\n📄 Created files:")
+for filename in sorted(os.listdir(output_dir)):
+    if filename.endswith('.json'):
+        filepath = os.path.join(output_dir, filename)
+        file_size = os.path.getsize(filepath)
+        print(f"  {filename} ({file_size:,} bytes)")

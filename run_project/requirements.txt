@@ -1,4 +1,0 @@
-pyshark
-kafka-python
-pyspark
-pandas

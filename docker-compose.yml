@@ -36,8 +36,9 @@ services:
 
   # Spark Master
   spark-master:
-    image: bitnami/spark:3.3
+    image: bitnami/spark:3.5.6
     container_name: spark-master
+    user: root
     networks:
       - ddos-net
     ports:
@@ -49,10 +50,14 @@ services:
     environment:
       - SPARK_MODE=master
       - HOME=/tmp
+      - HADOOP_USER_NAME=spark
+      - USER=spark
+      - HADOOP_CONF_DIR=/tmp
+      - JAVA_OPTS=-Djava.security.auth.login.config=/dev/null
 
   # Spark Worker
   spark-worker:
-    image: bitnami/spark:3.3
+    image: bitnami/spark:3.5.6
     container_name: spark-worker
     networks:
       - ddos-net
