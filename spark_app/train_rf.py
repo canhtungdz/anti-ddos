@@ -18,23 +18,23 @@ df = spark.read.csv("/opt/spark-data/*.csv", header=True, inferSchema=True)
 #  Làm sạch tên cột
 df = df.toDF(*[c.strip() for c in df.columns])
 for old_name in df.columns:
-    new_name = old_name.replace(" ", "_").replace(".", "_")
+    new_name = old_name.replace(" ", "_").replace(".", "_").replace("/", "_").lower()
     if old_name != new_name:
         df = df.withColumnRenamed(old_name, new_name)
 
 #  Xoá cột không cần thiết
-cols_to_drop = ['Unnamed:_0', 'Flow_ID', 'Source_IP', 'Destination_IP', 'Timestamp', 'SimillarHTTP', 'Inbound']
+cols_to_drop = ['unnamed:_0','flow_id', 'source_ip', 'destination_ip', 'timestamp', 'flow_duration', 'fwd_header_length_1','simillarhttp', 'inbound']
 df = df.drop(*[col_name for col_name in cols_to_drop if col_name in df.columns])
 
 #  Làm sạch nhãn (Label)
-df = df.withColumn("Label_cleaned", upper(trim(col("Label"))))
+df = df.withColumn("label_cleaned", upper(trim(col("label"))))
 
 #  Chuyển nhãn sang binary: BENIGN → 0.0, còn lại → 1.0
-df = df.withColumn("binary_label", when(col("Label_cleaned") == "BENIGN", 0.0).otherwise(1.0))
+df = df.withColumn("binary_label", when(col("label_cleaned") == "BENIGN", 0.0).otherwise(1.0))
 
 #  Thay thế Inf và NaN
 for c in df.columns:
-    if c not in ["binary_label", "Label", "Label_cleaned"]:
+    if c not in ["binary_label", "label", "label_cleaned"]:
         df = df.withColumn(c, when(col(c).isin(float("inf"), float("-inf")), None).otherwise(col(c)))
 
 df = df.dropna()
@@ -48,10 +48,10 @@ print(" Phân phối nhãn sau xử lý:")
 df.groupBy("binary_label").count().orderBy("binary_label").show()
 
 #  Vector hóa đặc trưng
-feature_cols = [c for c in df.columns if c not in ["Label", "Label_cleaned", "binary_label"]]
+feature_cols = [c for c in df.columns if c not in ["label", "label_cleaned", "binary_label"]]
 assembler = VectorAssembler(inputCols=feature_cols, outputCol="features")
 
-# 🌲 Random Forest phân loại nhị phân
+# Random Forest phân loại nhị phân
 rf = RandomForestClassifier(
     labelCol="binary_label",
     featuresCol="features",
