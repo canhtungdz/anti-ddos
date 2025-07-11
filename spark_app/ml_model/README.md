@@ -39,7 +39,7 @@ spark_app/
 ```bash
 docker exec -it spark-master spark-submit \
   --master spark://spark-master:7077 \
-  /opt/spark-apps/train_rf_model.py
+  /opt/spark-apps/train_rf.py
 ```
 
 Sau khi chạy xong, thư mục `/opt/ml-model/rf_binary_model` sẽ chứa pipeline đã huấn luyện. File `/opt/ml-model/expected_features.txt` cũng được tạo kèm.
@@ -105,7 +105,7 @@ df = df.dropna()
 
 ---
 
-## 🧪 Viết script chạy mô hình real-time (`predict_rf_streaming.py`)
+## 🧪 Viết script chạy mô hình real-time (`predict_rf.py`)
 
 Bạn có thể viết script dự đoán theo thời gian thực như sau:
 
@@ -174,7 +174,7 @@ query.awaitTermination()
 ```bash
 docker exec -it spark-master spark-submit \
   --master spark://spark-master:7077 \
-  /opt/spark-apps/predict_rf_streaming.py
+  /opt/spark-apps/predict_rf.py
 ```
 
 ---
