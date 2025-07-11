@@ -21,8 +21,6 @@ services:
       - ddos-net
     ports:
       - "29092:29092"
-    volumes:
-      - ./kafka_producer:/home/appuser
     depends_on:
       - zookeeper
     environment:
@@ -36,7 +34,9 @@ services:
 
   # Spark Master
   spark-master:
-    image: bitnami/spark:3.5.6
+    build:
+      context: ./docker/spark-run
+      dockerfile: Dockerfile
     container_name: spark-master
     user: root
     networks:
@@ -60,7 +60,9 @@ services:
 
   # Spark Worker
   spark-worker:
-    image: bitnami/spark:3.5.6
+    build:
+      context: ./docker/spark-run
+      dockerfile: Dockerfile
     container_name: spark-worker
     networks:
       - ddos-net
@@ -81,11 +83,11 @@ services:
       - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
       - SPARK_SSL_ENABLED=no
 
-  run_project:
+  kafka-run:
     build:
-      context: ./run_project
+      context: ./docker/kafka-run
       dockerfile: Dockerfile
-    container_name: run_project
+    container_name: kafka-run
     networks:
       - ddos-net
     volumes:

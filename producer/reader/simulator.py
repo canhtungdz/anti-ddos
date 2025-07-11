@@ -8,11 +8,11 @@ from scapy.layers.inet import IP, TCP, UDP
 
 # ⚙️ Kafka Producer
 producer = KafkaProducer(
-    bootstrap_servers='localhost:29092',
+    bootstrap_servers='kafka:9092',
     value_serializer=lambda v: json.dumps(v).encode('utf-8')
 )
 
-pcap_file = 'SAT-01-12-2018_0817.pcap'
+pcap_file = '/app/data/SAT-01-12-2018_0817.pcap'
 start_time = None
 real_start = time.perf_counter()
 sent_count = 0
@@ -101,7 +101,7 @@ for pkt_data, pkt_metadata in RawPcapReader(pcap_file):
         if not data:
             continue
 
-        producer.send('ddos_packets15_raw', value=data)
+        producer.send('ddos_packets_raw', value=data)
         print(f"📤 Gửi lúc: {data['timestamp']}")
         sent_count += 1
 

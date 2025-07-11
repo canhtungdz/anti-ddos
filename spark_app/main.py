@@ -1076,14 +1076,21 @@ if __name__ == "__main__":
         #     .option("latestFirst", "false") \
         #     .option("path", input_dir) \
         #     .load()
-        KAFKA_BOOTSTRAP_SERVERS = "localhost:9092"  # Thay đổi theo cấu hình Kafka của bạn
-        KAFKA_TOPIC = "network-packets"  # Tên topic Kafka
+        KAFKA_BOOTSTRAP_SERVERS = "kafka:9092"  # Thay đổi theo cấu hình Kafka của bạn
+        KAFKA_TOPIC = "ddos_packets_raw"  # Tên topic Kafka
         raw_df = spark.readStream \
             .format("kafka") \
-            .schema(input_schema) \
             .option("kafka.bootstrap.servers", KAFKA_BOOTSTRAP_SERVERS) \
             .option("subscribe", KAFKA_TOPIC) \
             .load()
+        
+        from pyspark.sql.functions import from_json, col
+        
+        # Parse JSON from Kafka value column
+        raw_df = raw_df.select(
+            from_json(col("value").cast("string"), input_schema).alias("data")
+        ).select("data.*")
+
         # ✅ NORMALIZE KEYS
         normalized_df = normalize_flow_key_for_grouping(raw_df)
         
