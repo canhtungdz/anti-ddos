@@ -45,7 +45,10 @@ services:
       - "7077:7077"
     volumes:
       - ./spark_app:/opt/spark-apps
+      - ./spark_app/ml_model:/opt/ml-model 
       - ./data:/opt/spark-data
+      - ./spark_output:/opt/spark-output
+
     environment:
       - SPARK_MODE=master
       - HOME=/tmp
@@ -60,16 +63,19 @@ services:
       - spark-master
     volumes:
       - ./spark_app:/opt/spark-apps
+      - ./spark_app/ml_model:/opt/ml-model 
       - ./data:/opt/spark-data
+      - ./spark_output:/opt/spark-output
+
     environment:
       - SPARK_MODE=worker
       - SPARK_MASTER_URL=spark://spark-master:7077
       - HOME=/tmp
-      - SPARK_MASTER_URL=spark://spark-master:7077 # Chỉ cho worker biết master ở đâu
       - SPARK_RPC_AUTHENTICATION_ENABLED=no
       - SPARK_RPC_ENCRYPTION_ENABLED=no
       - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
       - SPARK_SSL_ENABLED=no
+
   run_project:
     build:
       context: ./run_project
@@ -81,6 +87,7 @@ services:
       - ./data:/app/data
       - ./producer:/app/producer
       - ./spark_app:/app/spark_app
+      - ./kafka_producer:/app/kafka_producer
     depends_on:
       - kafka
       - spark-master
