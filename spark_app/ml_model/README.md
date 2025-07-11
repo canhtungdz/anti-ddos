@@ -1,4 +1,4 @@
-# 🔐 DDoS Detection using Spark MLlib (Random Forest Model)
+# DDoS Detection using Spark MLlib (Random Forest Model)
 
 ## 📘 Mục tiêu
 
@@ -6,7 +6,7 @@
 
 ---
 
-## 🧰 Yêu cầu hệ thống
+## Yêu cầu hệ thống
 
 * Apache Spark 3.x (hỗ trợ Structured Streaming)
 * Kafka topic chứa dữ liệu real-time (ví dụ: `ddos_packets_raw`)
@@ -16,21 +16,23 @@
 
 ---
 
-## 📁 Cấu trúc thư mục
+## Cấu trúc thư mục
 
 ```
-/opt/
-├── spark-apps/
-│   └── predict_rf_streaming.py        # 🔮 Script dự đoán real-time
-├── ml-model/
-│   ├── rf_binary_model/               # 🌲 Mô hình Random Forest đã huấn luyện
-│   └── expected_features.txt          # 📁 Danh sách các cột đặc trưng
-└── spark-data/                        # (Tùy chọn) dữ liệu CSV huấn luyện ban đầu
+spark_app/
+├── ml_model/
+│   ├── rf_binary_model/               #  Mô hình Random Forest đã huấn luyện
+│   ├── expected_features.txt          #  Danh sách các cột đặc trưng
+│   └── README.md                      #  Tài liệu mô tả mô hình
+├── predict_rf_spark.py               #  Dự đoán batch trên file CSV
+├── train_rf.py                       # Script huấn luyện mô hình Random Forest
+├── main.py                           # (tuỳ chọn) chạy chính
+└── README.md                         #  Hướng dẫn tổng thể
 ```
 
 ---
 
-## 🏗 Cách huấn luyện mô hình (1 lần duy nhất)
+## Cách huấn luyện mô hình (1 lần duy nhất)
 
 > Nếu bạn chưa có mô hình, hãy chạy script sau để train:
 
@@ -44,7 +46,7 @@ Sau khi chạy xong, thư mục `/opt/ml-model/rf_binary_model` sẽ chứa pipe
 
 ---
 
-## 🚀 Cách chạy dự đoán real-time
+## Cách chạy dự đoán real-time
 
 ### 1. Kafka phải gửi dữ liệu lên topic (ví dụ `ddos_packets_raw`), mỗi bản ghi là 1 JSON object với các đặc trưng định lượng (numeric features).
 
@@ -190,28 +192,3 @@ Dự đoán xuất hiện trong console dưới dạng:
 +----------+
 ```
 
-Bạn có thể tùy chọn:
-
-* Ghi kết quả ra file CSV
-* Gửi tiếp ra Kafka topic khác (ví dụ `ddos_predictions`)
-* Hiển thị trên dashboard (Prometheus, Grafana, v.v.)
-
----
-
-## 📌 Gợi ý mở rộng
-
-* Tích hợp với hệ thống cảnh báo (email, Telegram)
-* Tự động lưu các Flow bị nghi là DDoS để huấn luyện lại mô hình
-* Phân loại nhiều loại tấn công (DoS, Scan, BruteForce, ...)
-
----
-
-## 📞 Liên hệ
-
-Nếu có vấn đề khi chạy, hãy kiểm tra:
-
-* Mô hình đã được lưu đúng vị trí `/opt/ml-model/rf_binary_model`
-* File `expected_features.txt` đúng thứ tự và đủ cột
-* Kafka đang đẩy dữ liệu dạng JSON đúng schema
-
-> Chúc bạn phát hiện DDoS thành công với Spark! 🚀
