@@ -47,19 +47,6 @@ predictions_pd["Predicted_Label"] = predictions_pd["prediction"].map({0.0: "Norm
 
 # 8. Loại bỏ cột prediction nếu không cần, giữ lại tất cả đặc trưng và thêm cột Predicted_Label
 final_result = predictions_pd.drop(columns=["prediction"])
-out_path = "/opt/spark-output/prediction_result_rf_full.csv"
+out_json_path = "/opt/spark-output/prediction_result_rf_full.json"
 os.makedirs("/opt/spark-output", exist_ok=True)
-final_result.to_csv(out_path, index=False)
-
-# 9. Thông báo hoàn tất
-print(f" Đã lưu kết quả tại: {out_path}")
-
-# 10. Vẽ biểu đồ phân bố nhãn (không show GUI)
-final_result["Predicted_Label"].value_counts().sort_index().plot(kind='bar', color='lightblue')
-plt.xlabel("Nhãn dự đoán")
-plt.ylabel("Số lượng Flow")
-plt.title("Phân bố nhãn dự đoán (RF)")
-plt.grid(True)
-plt.tight_layout()
-plt.savefig("/opt/spark-output/predicted_label_rf_full.png")
-plt.close()  # Không dùng plt.show() để tránh lỗi trong môi trường không hỗ trợ GUI
+final_result.to_json(out_json_path, orient="records", lines=True)
