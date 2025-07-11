@@ -572,7 +572,7 @@ def update_state(key, pdf_iter: Iterator[pd.DataFrame], state: GroupState) -> It
         }
         
         timestamps = {
-            'prev_fwd_timestamp': None, 
+            'prev_fwd_timestamp': None,
             'prev_bwd_timestamp': None,
             'prev_flow_timestamp': None
         }
