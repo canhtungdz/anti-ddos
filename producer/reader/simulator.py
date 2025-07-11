@@ -12,7 +12,7 @@ producer = KafkaProducer(
     value_serializer=lambda v: json.dumps(v).encode('utf-8')
 )
 
-pcap_file = '/app/data/fixed_00006.pcap'
+pcap_file = '/app/data/SAT-01-12-2018_0817.pcap'
 start_time = None
 real_start = time.perf_counter()
 sent_count = 0
@@ -101,8 +101,8 @@ for pkt_data, pkt_metadata in RawPcapReader(pcap_file):
         if not data:
             continue
 
-        producer.send('ddos_packets_raw3', value=data)
-        # print(f"📤 Gửi lúc: {data['timestamp']}")
+        producer.send('ddos_packets_raw', value=data)
+        print(f"📤 Gửi lúc: {data['timestamp']}")
         sent_count += 1
 
     except Exception as e:
