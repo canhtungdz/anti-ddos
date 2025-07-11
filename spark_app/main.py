@@ -1069,14 +1069,21 @@ if __name__ == "__main__":
         print(f"📁 CSV output file (completed flows only): {os.path.join(output_dir, 'all_flows.csv')}")
         
         # ✅ READ STREAM WITH OPTIMIZATIONS
+        # raw_df = spark.readStream \
+        #     .format("json") \
+        #     .schema(input_schema) \
+        #     .option("maxFilesPerTrigger", 1) \
+        #     .option("latestFirst", "false") \
+        #     .option("path", input_dir) \
+        #     .load()
+        KAFKA_BOOTSTRAP_SERVERS = "localhost:9092"  # Thay đổi theo cấu hình Kafka của bạn
+        KAFKA_TOPIC = "network-packets"  # Tên topic Kafka
         raw_df = spark.readStream \
-            .format("json") \
+            .format("kafka") \
             .schema(input_schema) \
-            .option("maxFilesPerTrigger", 1) \
-            .option("latestFirst", "false") \
-            .option("path", input_dir) \
+            .option("kafka.bootstrap.servers", KAFKA_BOOTSTRAP_SERVERS) \
+            .option("subscribe", KAFKA_TOPIC) \
             .load()
-
         # ✅ NORMALIZE KEYS
         normalized_df = normalize_flow_key_for_grouping(raw_df)
         
