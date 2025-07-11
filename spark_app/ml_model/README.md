@@ -67,11 +67,11 @@ Ví dụ một bản ghi:
 }
 ```
 
-> ⚠️ Bạn cần xử lý đầu vào để loại bỏ các cột không nằm trong danh sách `expected_features.txt`, chẳng hạn như: `Unnamed_0`, `Source_IP`, `Destination_IP`, `Timestamp`, `SimillarHTTP`, `Inbound`...
+>  Bạn cần xử lý đầu vào để loại bỏ các cột không nằm trong danh sách `expected_features.txt`, chẳng hạn như: `Unnamed_0`, `Source_IP`, `Destination_IP`, `Timestamp`, `SimillarHTTP`, `Inbound`...
 
 ---
 
-## 🔧 Làm sạch dữ liệu đầu vào
+##  Làm sạch dữ liệu đầu vào
 
 Trước khi đưa vào mô hình, cần đảm bảo dữ liệu:
 
@@ -85,7 +85,7 @@ Ví dụ đoạn code làm sạch:
 ```python
 from pyspark.sql.functions import col, when
 
-# ✂️ Làm sạch tên cột
+#  Làm sạch tên cột
 df = df.toDF(*[c.strip() for c in df.columns])
 for old_name in df.columns:
     new_name = old_name.replace(" ", "_").replace(".", "_")
@@ -105,7 +105,7 @@ df = df.dropna()
 
 ---
 
-## 🧪 Viết script chạy mô hình real-time (`predict_rf.py`)
+##  Viết script chạy mô hình real-time (`predict_rf.py`)
 
 Bạn có thể viết script dự đoán theo thời gian thực như sau:
 
@@ -169,7 +169,7 @@ query.awaitTermination()
 
 ---
 
-## 🚀 Chạy script trong container
+##  Chạy script trong container
 
 ```bash
 docker exec -it spark-master spark-submit \
@@ -179,7 +179,7 @@ docker exec -it spark-master spark-submit \
 
 ---
 
-## 💥 Đầu ra
+##  Đầu ra
 
 Dự đoán xuất hiện trong console dưới dạng:
 
