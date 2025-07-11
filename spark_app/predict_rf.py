@@ -52,7 +52,7 @@ os.makedirs("/opt/spark-output", exist_ok=True)
 final_result.to_csv(out_path, index=False)
 
 # 9. Thông báo hoàn tất
-print(f"✅ Đã lưu kết quả tại: {out_path}")
+print(f" Đã lưu kết quả tại: {out_path}")
 
 # 10. Vẽ biểu đồ phân bố nhãn (không show GUI)
 final_result["Predicted_Label"].value_counts().sort_index().plot(kind='bar', color='lightblue')
