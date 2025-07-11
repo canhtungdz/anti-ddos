@@ -1,4 +1,2 @@
-pyshark
 kafka-python
-pyspark
-pandas
+scapy
