@@ -114,4 +114,20 @@ services:
     networks:
       - ddos-net
     depends_on:
-      - elasticsearch              
+      - elasticsearch
+  
+  indexer:
+    build:
+      context: ./indexer
+    container_name: indexer
+    depends_on:
+      - kafka
+      - elasticsearch
+    networks:
+      - ddos-net
+    environment:
+      - KAFKA_BROKER=kafka:9092
+      - KAFKA_TOPIC=ddos_result
+      - ES_HOST=http://elasticsearch:9200
+      - ES_INDEX=ddos_flows
+                

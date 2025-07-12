@@ -11,6 +11,7 @@ from typing import Iterator
 from datetime import datetime
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, when
+from pyspark.sql.functions import from_json, col
 from pyspark.sql.streaming.state import GroupState
 from pyspark.sql.types import (
     StructType, StructField, StringType, IntegerType, LongType, TimestampType
@@ -986,57 +987,13 @@ def update_state(key, pdf_iter: Iterator[pd.DataFrame], state: GroupState) -> It
         yield pd.DataFrame()
         return
 
-    yield pd.DataFrame(output_data)
-
-# ✅ MODIFIED CSV WRITING FUNCTION - ONLY FOR TIMEOUT FLOWS
-def foreach_batch_function(df, epoch_id):
-    """
-    Custom function to write ONLY timeout flows to CSV
-    """
-    try:
-        # Filter only timeout flows (flows with "_TIMEOUT" suffix)
-        if df.count() > 0:
-            pandas_df = df.toPandas()
-            
-            # Filter timeout flows only
-            timeout_flows = pandas_df[pandas_df['flow_id'].str.contains('_TIMEOUT', na=False)]
-            
-            if len(timeout_flows) > 0:
-                print(f"\n📝 Batch {epoch_id} - Writing {len(timeout_flows)} completed flows to CSV")
-                
-                # Remove "_TIMEOUT" suffix from flow_id for clean CSV
-                timeout_flows = timeout_flows.copy()
-                timeout_flows['flow_id'] = timeout_flows['flow_id'].str.replace('_TIMEOUT', '')
-                
-                # Master CSV file path
-                master_csv_path = os.path.join(output_dir, "all_flows.csv")
-                
-                # Check if master file exists
-                if os.path.exists(master_csv_path):
-                    # Append without header
-                    timeout_flows.to_csv(master_csv_path, mode='a', header=False, index=False)
-                else:
-                    # Create new file with header
-                    timeout_flows.to_csv(master_csv_path, mode='w', header=True, index=False)
-                
-                print(f"✅ Written {len(timeout_flows)} completed flows to: {master_csv_path}")
-            else:
-                print(f"📊 Batch {epoch_id} - No completed flows to write")
-        
-    except Exception as e:
-        print(f"❌ Error in foreach_batch_function: {e}")
-        traceback.print_exc()
+    yield pd.DataFrame(output_data)        
 
 # ✅ MODIFY THE MAIN SECTION
 if __name__ == "__main__":
-    # Set environment variables
-    # os.environ['HADOOP_USER_NAME'] = 'root'
-    # os.environ['USER'] = 'root'
-    
-    # ✅ OPTIMIZED SPARK SESSION FOR SPARK 3.5+
     spark = SparkSession.builder \
         .appName("OptimizedStatefulNetworkStream") \
-        .master("local[*]") \
+        .master("local[4]") \
         .config("spark.sql.adaptive.enabled", "true") \
         .config("spark.sql.adaptive.coalescePartitions.enabled", "true") \
         .config("spark.sql.adaptive.skewJoin.enabled", "true") \
@@ -1053,48 +1010,31 @@ if __name__ == "__main__":
         .getOrCreate()
 
     spark.sparkContext.setLogLevel("ERROR")
-    
-    # # ✅ DIRECTORIES CONFIGURATION
-    # input_dir = "/opt/spark-data/stream_input"
-    output_dir = "/opt/spark-data/stream_output"
+
     checkpoint_dir = "/tmp/spark_checkpoint"
-    
-    # os.makedirs(input_dir, exist_ok=True, mode=0o777)
-    os.makedirs(output_dir, exist_ok=True, mode=0o777)
-    os.makedirs(checkpoint_dir, exist_ok=True, mode=0o777)
-    
+
     try:
-        # print("🚀 Starting Optimized Spark 3.5+ Streaming...")
-        # print(f"📁 Input directory: {input_dir}")
-        # print(f"📁 CSV output file (completed flows only): {os.path.join(output_dir, 'all_flows.csv')}")
-        
-        # ✅ READ STREAM WITH OPTIMIZATIONS
-        # raw_df = spark.readStream \
-        #     .format("json") \
-        #     .schema(input_schema) \
-        #     .option("maxFilesPerTrigger", 1) \
-        #     .option("latestFirst", "false") \
-        #     .option("path", input_dir) \
-        #     .load()
-        KAFKA_BOOTSTRAP_SERVERS = "kafka:9092"  # Thay đổi theo cấu hình Kafka của bạn
-        KAFKA_TOPIC = "ddos_packets_raw"  # Tên topic Kafka
+        # ✅ KAFKA CONFIG
+        KAFKA_BOOTSTRAP_SERVERS = "kafka:9092"
+        KAFKA_INPUT_TOPIC = "ddos_packets_raw"
+        KAFKA_OUTPUT_TOPIC = "ddos_result"
+
+        # ✅ READ FROM KAFKA
         raw_df = spark.readStream \
             .format("kafka") \
             .option("kafka.bootstrap.servers", KAFKA_BOOTSTRAP_SERVERS) \
-            .option("subscribe", KAFKA_TOPIC) \
+            .option("subscribe", KAFKA_INPUT_TOPIC) \
             .load()
-        
-        from pyspark.sql.functions import from_json, col
-        
-        # Parse JSON from Kafka value column
+
+        # ✅ PARSE JSON STRING → STRUCT
         raw_df = raw_df.select(
             from_json(col("value").cast("string"), input_schema).alias("data")
         ).select("data.*")
 
-        # ✅ NORMALIZE KEYS
+        # ✅ NORMALIZE FLOW KEYS
         normalized_df = normalize_flow_key_for_grouping(raw_df)
-        
-        # ✅ OPTIMIZED STATEFUL PROCESSING WITH applyInPandasWithState
+
+        # ✅ STATEFUL AGGREGATION
         result_df = normalized_df.groupBy(
             "normalized_src_ip",
             "normalized_dst_ip",
@@ -1109,51 +1049,39 @@ if __name__ == "__main__":
             timeoutConf="ProcessingTimeTimeout"
         )
 
-        # # ✅ OPTION 1: Use foreachBatch to write only completed flows
-        # query = result_df.writeStream \
-        #     .outputMode("update") \
-        #     .foreachBatch(foreach_batch_function) \
-        #     .trigger(processingTime='5 seconds') \
-        #     .option("checkpointLocation", checkpoint_dir) \
-        #     .start()
-        
-        # ✅ OPTION 2: Alternative - Dual output (uncomment if you want both console and CSV)
-        
-        # Console output for monitoring active flows
+        # ✅ WRITE _TIMEOUT RESULTS TO KAFKA (for Elasticsearch)
+        kafka_output_df = result_df.filter(col("flow_id").contains("_TIMEOUT")) \
+            .selectExpr("to_json(struct(*)) AS value")
+
+        kafka_query = kafka_output_df.writeStream \
+            .format("kafka") \
+            .option("kafka.bootstrap.servers", KAFKA_BOOTSTRAP_SERVERS) \
+            .option("topic", KAFKA_OUTPUT_TOPIC) \
+            .option("checkpointLocation", checkpoint_dir + "_kafka") \
+            .outputMode("update") \
+            .start()
+
+        # ✅ CONSOLE MONITOR
         console_query = result_df.writeStream \
             .outputMode("update") \
             .format("console") \
             .option("truncate", "false") \
             .trigger(processingTime='5 seconds') \
             .start()
-        
-        # CSV output for completed flows only
-        csv_query = result_df.filter(col("flow_id").contains("_TIMEOUT")) \
-            .writeStream \
-            .outputMode("update") \
-            .foreachBatch(foreach_batch_function) \
-            .trigger(processingTime='5 seconds') \
-            .option("checkpointLocation", checkpoint_dir + "_csv") \
-            .start()
-        
-        # Wait for both
+
+        # ✅ WAIT FOR TERMINATION
         console_query.awaitTermination()
-        csv_query.awaitTermination()
-        
-        
-        console_query.awaitTermination()
-        csv_query.awaitTermination()
-        
+        kafka_query.awaitTermination()
+
     except KeyboardInterrupt:
         print("\n🛑 Stopping streaming...")
         console_query.stop()
-        csv_query.stop()
-        
+        kafka_query.stop()
+
     except Exception as e:
         print(f"❌ Error: {e}")
         traceback.print_exc()
-        
+
     finally:
         spark.stop()
         print("✅ Spark session stopped")
-        print(f"📊 Check completed flows in: {os.path.join(output_dir, 'all_flows.csv')}")
