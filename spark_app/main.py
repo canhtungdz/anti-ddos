@@ -60,9 +60,9 @@ output_schema = StructType([
     StructField("timestamp", TimestampType(), False),
     
     StructField("total_fwd_packets", IntegerType(), False),
-    StructField("total_bwd_packets", IntegerType(), False),
-    StructField("total_length_fwd_packets", LongType(), False),
-    StructField("total_length_bwd_packets", LongType(), False),
+    StructField("total_backward_packets", IntegerType(), False),
+    StructField("total_length_of_fwd_packets", LongType(), False),
+    StructField("total_length_of_bwd_packets", LongType(), False),
     StructField("fwd_packet_length_max", LongType(), False),
     StructField("fwd_packet_length_min", LongType(), False),
     StructField("fwd_packet_length_mean", LongType(), False),
@@ -71,8 +71,8 @@ output_schema = StructType([
     StructField("bwd_packet_length_min", LongType(), False),
     StructField("bwd_packet_length_mean", LongType(), False),
     StructField("bwd_packet_length_std", LongType(), False),
-    StructField("flow_bytes_per_s", LongType(), False),
-    StructField("flow_packets_per_s", LongType(), False),
+    StructField("flow_bytes_s", LongType(), False),
+    StructField("flow_packets_s", LongType(), False),
     StructField("flow_iat_mean", LongType(), False),
     StructField("flow_iat_std", LongType(), False),
     StructField("flow_iat_max", LongType(), False),
@@ -93,8 +93,8 @@ output_schema = StructType([
     StructField("bwd_urg_flags", IntegerType(), False),
     StructField("fwd_header_length", IntegerType(), False),
     StructField("bwd_header_length", IntegerType(), False),
-    StructField("fwd_packets_per_s", LongType(), False),
-    StructField("bwd_packets_per_s", LongType(), False),
+    StructField("fwd_packets_s", LongType(), False),
+    StructField("bwd_packets_s", LongType(), False),
     StructField("min_packet_length", LongType(), False),
     StructField("max_packet_length", LongType(), False),
     StructField("packet_length_mean", LongType(), False),
@@ -152,11 +152,11 @@ state_schema = StructType([
     
     # Packet counts
     StructField("total_fwd_packets", IntegerType(), False),
-    StructField("total_bwd_packets", IntegerType(), False),
+    StructField("total_backward_packets", IntegerType(), False),
     
     # Packet lengths
-    StructField("total_length_fwd_packets", LongType(), False),
-    StructField("total_length_bwd_packets", LongType(), False),
+    StructField("total_length_of_fwd_packets", LongType(), False),
+    StructField("total_length_of_bwd_packets", LongType(), False),
     
     # Forward packet length statistics
     StructField("fwd_packet_lengths", StringType(), False),  # JSON array of lengths
@@ -350,8 +350,8 @@ def update_state(key, pdf_iter: Iterator[pd.DataFrame], state: GroupState) -> It
                     # Load counters
                     counters = {}
                     counter_fields = [
-                        'total_fwd_packets', 'total_bwd_packets', 'total_length_fwd_packets', 
-                        'total_length_bwd_packets', 'fwd_packet_length_max', 'fwd_packet_length_min',
+                        'total_fwd_packets', 'total_backward_packets', 'total_length_of_fwd_packets', 
+                        'total_length_of_bwd_packets', 'fwd_packet_length_max', 'fwd_packet_length_min',
                         'bwd_packet_length_max', 'bwd_packet_length_min', 'min_packet_length', 
                         'max_packet_length', 'fin_flag_count', 'syn_flag_count', 'rst_flag_count',
                         'psh_flag_count', 'ack_flag_count', 'urg_flag_count', 'cwe_flag_count', 
@@ -388,11 +388,11 @@ def update_state(key, pdf_iter: Iterator[pd.DataFrame], state: GroupState) -> It
                     if start_ts and last_ts:
                         flow_duration = max((last_ts - start_ts).total_seconds(), 0.001)
                         
-                        total_bytes = counters['total_length_fwd_packets'] + counters['total_length_bwd_packets']
-                        total_packets = counters['total_fwd_packets'] + counters['total_bwd_packets']
+                        total_bytes = counters['total_length_of_fwd_packets'] + counters['total_length_of_bwd_packets']
+                        total_packets = counters['total_fwd_packets'] + counters['total_backward_packets']
                         
-                        flow_bytes_per_s = int(total_bytes / flow_duration) if flow_duration > 0 else 0
-                        flow_packets_per_s = int(total_packets / flow_duration) if flow_duration > 0 else 0
+                        flow_bytes_s = int(total_bytes / flow_duration) if flow_duration > 0 else 0
+                        flow_packets_s = int(total_packets / flow_duration) if flow_duration > 0 else 0
                         
                         # Create arrays for calculations
                         fwd_lengths_arr = np.array(arrays['fwd_packet_lengths']) if arrays['fwd_packet_lengths'] else np.array([])
@@ -415,9 +415,9 @@ def update_state(key, pdf_iter: Iterator[pd.DataFrame], state: GroupState) -> It
                             'protocol': [flow_info['flow_protocol']],
                             'timestamp': [flow_info['last_seen_timestamp']],
                             'total_fwd_packets': [counters['total_fwd_packets']],
-                            'total_bwd_packets': [counters['total_bwd_packets']],
-                            'total_length_fwd_packets': [counters['total_length_fwd_packets']],
-                            'total_length_bwd_packets': [counters['total_length_bwd_packets']],
+                            'total_backward_packets': [counters['total_backward_packets']],
+                            'total_length_of_fwd_packets': [counters['total_length_of_fwd_packets']],
+                            'total_length_of_bwd_packets': [counters['total_length_of_bwd_packets']],
                             'fwd_packet_length_max': [counters['fwd_packet_length_max'] if counters['fwd_packet_length_max'] > 0 else 0],
                             'fwd_packet_length_min': [counters['fwd_packet_length_min'] if counters['fwd_packet_length_min'] != float('inf') else 0],
                             'fwd_packet_length_mean': [int(safe_mean(fwd_lengths_arr))],
@@ -426,8 +426,8 @@ def update_state(key, pdf_iter: Iterator[pd.DataFrame], state: GroupState) -> It
                             'bwd_packet_length_min': [counters['bwd_packet_length_min'] if counters['bwd_packet_length_min'] != float('inf') else 0],
                             'bwd_packet_length_mean': [int(safe_mean(bwd_lengths_arr))],
                             'bwd_packet_length_std': [int(safe_std(bwd_lengths_arr))],
-                            'flow_bytes_per_s': [flow_bytes_per_s],
-                            'flow_packets_per_s': [flow_packets_per_s],
+                            'flow_bytes_s': [flow_bytes_s],
+                            'flow_packets_s': [flow_packets_s],
                             'flow_iat_mean': [int(safe_mean(flow_iat_arr))],
                             'flow_iat_std': [int(safe_std(flow_iat_arr))],
                             'flow_iat_max': [int(safe_max(flow_iat_arr))],
@@ -448,8 +448,8 @@ def update_state(key, pdf_iter: Iterator[pd.DataFrame], state: GroupState) -> It
                             'bwd_urg_flags': [counters['bwd_urg_flags']],
                             'fwd_header_length': [counters['fwd_header_length']],
                             'bwd_header_length': [counters['bwd_header_length']],
-                            'fwd_packets_per_s': [int(counters['total_fwd_packets'] / flow_duration) if flow_duration > 0 else 0],
-                            'bwd_packets_per_s': [int(counters['total_bwd_packets'] / flow_duration) if flow_duration > 0 else 0],
+                            'fwd_packets_s': [int(counters['total_fwd_packets'] / flow_duration) if flow_duration > 0 else 0],
+                            'bwd_packets_s': [int(counters['total_backward_packets'] / flow_duration) if flow_duration > 0 else 0],
                             'min_packet_length': [counters['min_packet_length'] if counters['min_packet_length'] != float('inf') else 0],
                             'max_packet_length': [counters['max_packet_length']],
                             'packet_length_mean': [int(safe_mean(all_lengths_arr))],
@@ -463,7 +463,7 @@ def update_state(key, pdf_iter: Iterator[pd.DataFrame], state: GroupState) -> It
                             'urg_flag_count': [counters['urg_flag_count']],
                             'cwe_flag_count': [counters['cwe_flag_count']],
                             'ece_flag_count': [counters['ece_flag_count']],
-                            'down_up_ratio': [int(counters['total_length_bwd_packets'] / counters['total_length_fwd_packets']) if counters['total_length_fwd_packets'] > 0 else 0],
+                            'down_up_ratio': [int(counters['total_length_of_bwd_packets'] / counters['total_length_of_fwd_packets']) if counters['total_length_of_fwd_packets'] > 0 else 0],
                             'average_packet_size': [int(safe_mean(all_lengths_arr))],
                             'avg_fwd_segment_size': [int(safe_mean(fwd_lengths_arr))],
                             'avg_bwd_segment_size': [int(safe_mean(bwd_lengths_arr))],
@@ -546,8 +546,8 @@ def update_state(key, pdf_iter: Iterator[pd.DataFrame], state: GroupState) -> It
         
         # Initialize all counters
         counters = {
-            'total_fwd_packets': 0, 'total_bwd_packets': 0,
-            'total_length_fwd_packets': 0, 'total_length_bwd_packets': 0,
+            'total_fwd_packets': 0, 'total_backward_packets': 0,
+            'total_length_of_fwd_packets': 0, 'total_length_of_bwd_packets': 0,
             'fwd_packet_length_max': 0, 'fwd_packet_length_min': float('inf'),
             'bwd_packet_length_max': 0, 'bwd_packet_length_min': float('inf'),
             'min_packet_length': float('inf'), 'max_packet_length': 0,
@@ -625,8 +625,8 @@ def update_state(key, pdf_iter: Iterator[pd.DataFrame], state: GroupState) -> It
         # ✅ LOAD COUNTERS WITH SAFE CONVERSION
         counters = {}
         counter_fields = [
-            'total_fwd_packets', 'total_bwd_packets', 'total_length_fwd_packets', 
-            'total_length_bwd_packets', 'fwd_packet_length_max', 'fwd_packet_length_min',
+            'total_fwd_packets', 'total_backward_packets', 'total_length_of_fwd_packets', 
+            'total_length_of_bwd_packets', 'fwd_packet_length_max', 'fwd_packet_length_min',
             'bwd_packet_length_max', 'bwd_packet_length_min', 'min_packet_length', 
             'max_packet_length', 'fin_flag_count', 'syn_flag_count', 'rst_flag_count',
             'psh_flag_count', 'ack_flag_count', 'urg_flag_count', 'cwe_flag_count', 
@@ -689,7 +689,7 @@ def update_state(key, pdf_iter: Iterator[pd.DataFrame], state: GroupState) -> It
         
         # Update counters
         counters['total_fwd_packets'] += len(fwd_packets)
-        counters['total_length_fwd_packets'] += int(np.sum(fwd_lengths))
+        counters['total_length_of_fwd_packets'] += int(np.sum(fwd_lengths))
         
         # Update min/max
         if len(fwd_lengths) > 0:
@@ -745,8 +745,8 @@ def update_state(key, pdf_iter: Iterator[pd.DataFrame], state: GroupState) -> It
         bwd_lengths = bwd_packets['length'].values
         
         # Update counters
-        counters['total_bwd_packets'] += len(bwd_packets)
-        counters['total_length_bwd_packets'] += int(np.sum(bwd_lengths))
+        counters['total_backward_packets'] += len(bwd_packets)
+        counters['total_length_of_bwd_packets'] += int(np.sum(bwd_lengths))
         
         # Update min/max
         if len(bwd_lengths) > 0:
@@ -841,11 +841,11 @@ def update_state(key, pdf_iter: Iterator[pd.DataFrame], state: GroupState) -> It
     
     flow_duration = max((last_ts - start_ts).total_seconds(), 0.001)
     
-    total_bytes = counters['total_length_fwd_packets'] + counters['total_length_bwd_packets']
-    total_packets = counters['total_fwd_packets'] + counters['total_bwd_packets']
+    total_bytes = counters['total_length_of_fwd_packets'] + counters['total_length_of_bwd_packets']
+    total_packets = counters['total_fwd_packets'] + counters['total_backward_packets']
     
-    flow_bytes_per_s = int(total_bytes / flow_duration) if flow_duration > 0 else 0
-    flow_packets_per_s = int(total_packets / flow_duration) if flow_duration > 0 else 0
+    flow_bytes_s = int(total_bytes / flow_duration) if flow_duration > 0 else 0
+    flow_packets_s = int(total_packets / flow_duration) if flow_duration > 0 else 0
     
     # ✅ CREATE NUMPY ARRAYS FOR STATISTICAL CALCULATIONS
     fwd_lengths_arr = np.array(arrays['fwd_packet_lengths']) if arrays['fwd_packet_lengths'] else np.array([])
@@ -868,9 +868,9 @@ def update_state(key, pdf_iter: Iterator[pd.DataFrame], state: GroupState) -> It
         'protocol': [flow_info['flow_protocol']],
         'timestamp': [flow_info['last_seen_timestamp']],
         'total_fwd_packets': [counters['total_fwd_packets']],
-        'total_bwd_packets': [counters['total_bwd_packets']],
-        'total_length_fwd_packets': [counters['total_length_fwd_packets']],
-        'total_length_bwd_packets': [counters['total_length_bwd_packets']],
+        'total_backward_packets': [counters['total_backward_packets']],
+        'total_length_of_fwd_packets': [counters['total_length_of_fwd_packets']],
+        'total_length_of_bwd_packets': [counters['total_length_of_bwd_packets']],
         'fwd_packet_length_max': [counters['fwd_packet_length_max'] if counters['fwd_packet_length_max'] > 0 else 0],
         'fwd_packet_length_min': [counters['fwd_packet_length_min'] if counters['fwd_packet_length_min'] != float('inf') else 0],
         'fwd_packet_length_mean': [int(safe_mean(fwd_lengths_arr))],
@@ -879,8 +879,8 @@ def update_state(key, pdf_iter: Iterator[pd.DataFrame], state: GroupState) -> It
         'bwd_packet_length_min': [counters['bwd_packet_length_min'] if counters['bwd_packet_length_min'] != float('inf') else 0],
         'bwd_packet_length_mean': [int(safe_mean(bwd_lengths_arr))],
         'bwd_packet_length_std': [int(safe_std(bwd_lengths_arr))],
-        'flow_bytes_per_s': [flow_bytes_per_s],
-        'flow_packets_per_s': [flow_packets_per_s],
+        'flow_bytes_s': [flow_bytes_s],
+        'flow_packets_s': [flow_packets_s],
         'flow_iat_mean': [int(safe_mean(flow_iat_arr))],
         'flow_iat_std': [int(safe_std(flow_iat_arr))],
         'flow_iat_max': [int(safe_max(flow_iat_arr))],
@@ -901,8 +901,8 @@ def update_state(key, pdf_iter: Iterator[pd.DataFrame], state: GroupState) -> It
         'bwd_urg_flags': [counters['bwd_urg_flags']],
         'fwd_header_length': [counters['fwd_header_length']],
         'bwd_header_length': [counters['bwd_header_length']],
-        'fwd_packets_per_s': [int(counters['total_fwd_packets'] / flow_duration) if flow_duration > 0 else 0],
-        'bwd_packets_per_s': [int(counters['total_bwd_packets'] / flow_duration) if flow_duration > 0 else 0],
+        'fwd_packets_s': [int(counters['total_fwd_packets'] / flow_duration) if flow_duration > 0 else 0],
+        'bwd_packets_s': [int(counters['total_backward_packets'] / flow_duration) if flow_duration > 0 else 0],
         'min_packet_length': [counters['min_packet_length'] if counters['min_packet_length'] != float('inf') else 0],
         'max_packet_length': [counters['max_packet_length']],
         'packet_length_mean': [int(safe_mean(all_lengths_arr))],
@@ -916,7 +916,7 @@ def update_state(key, pdf_iter: Iterator[pd.DataFrame], state: GroupState) -> It
         'urg_flag_count': [counters['urg_flag_count']],
         'cwe_flag_count': [counters['cwe_flag_count']],
         'ece_flag_count': [counters['ece_flag_count']],
-        'down_up_ratio': [int(counters['total_length_bwd_packets'] / counters['total_length_fwd_packets']) if counters['total_length_fwd_packets'] > 0 else 0],
+        'down_up_ratio': [int(counters['total_length_of_bwd_packets'] / counters['total_length_of_fwd_packets']) if counters['total_length_of_fwd_packets'] > 0 else 0],
         'average_packet_size': [int(safe_mean(all_lengths_arr))],
         'avg_fwd_segment_size': [int(safe_mean(fwd_lengths_arr))],
         'avg_bwd_segment_size': [int(safe_mean(bwd_lengths_arr))],
@@ -979,7 +979,7 @@ def update_state(key, pdf_iter: Iterator[pd.DataFrame], state: GroupState) -> It
         state.update(tuple(new_state_data))
         state.setTimeoutDuration(60000)  # 60 second timeout
         
-        print(f"✅ Flow {flow_id} updated: fwd={counters['total_fwd_packets']}, bwd={counters['total_bwd_packets']}")
+        print(f"✅ Flow {flow_id} updated: fwd={counters['total_fwd_packets']}, bwd={counters['total_backward_packets']}")
         
     except Exception as e:
         print(f"❌ Error updating state: {e}")
@@ -1082,9 +1082,10 @@ if __name__ == "__main__":
             .format("kafka") \
             .option("kafka.bootstrap.servers", KAFKA_BOOTSTRAP_SERVERS) \
             .option("subscribe", KAFKA_TOPIC) \
+            .option("startingOffsets", "latest") \
             .load()
         
-        from pyspark.sql.functions import from_json, col
+        from pyspark.sql.functions import from_json
         
         # Parse JSON from Kafka value column
         raw_df = raw_df.select(
@@ -1119,16 +1120,35 @@ if __name__ == "__main__":
         
         # ✅ OPTION 2: Alternative - Dual output (uncomment if you want both console and CSV)
         
-        # Console output for monitoring active flows
-        console_query = result_df.writeStream \
-            .outputMode("update") \
-            .format("console") \
-            .option("truncate", "false") \
-            .trigger(processingTime='5 seconds') \
-            .start()
-        
-        # CSV output for completed flows only
-        csv_query = result_df.filter(col("flow_id").contains("_TIMEOUT")) \
+        from pyspark.ml import PipelineModel
+        from pyspark.sql.functions import when
+
+        # 🔍 Load mô hình Random Forest đã train từ trước
+        model_path = "/opt/spark-apps/ml_model/rf_binary_model"
+        model = PipelineModel.load(model_path)
+
+        # 🔍 Đọc danh sách cột đặc trưng
+        with open("/opt/spark-apps/ml_model/expected_features.txt") as f:
+            expected_features = [line.strip() for line in f if line.strip()]
+
+        # ⚠️ Chỉ chọn các dòng đã timeout (flow đầy đủ)
+        completed_flows_df = result_df.filter(col("flow_id").contains("_TIMEOUT"))
+
+        # ✅ FIX: Thêm các cột thiếu vào expected_features thay vì loại bỏ
+        required_columns = ["flow_id", "source_ip", "destination_ip", "source_port", "destination_port", "protocol", "timestamp"]
+        all_columns_for_prediction = required_columns + expected_features
+
+        # Chỉ select các cột có trong DataFrame
+        df_for_prediction = completed_flows_df.select(*[c for c in all_columns_for_prediction if c in completed_flows_df.columns])
+
+        # 🚀 Chạy mô hình để dự đoán
+        predictions = model.transform(df_for_prediction)
+
+        # 🏷️ Gắn nhãn vào DataFrame
+        labeled_df = predictions.withColumn("Label", when(col("prediction") == 1.0, "DDoS").otherwise("Normal"))
+
+        # ✅ Bây giờ labeled_df có đầy đủ cột bao gồm flow_id
+        csv_query = labeled_df.filter(col("flow_id").contains("_TIMEOUT")) \
             .writeStream \
             .outputMode("update") \
             .foreachBatch(foreach_batch_function) \
@@ -1137,16 +1157,12 @@ if __name__ == "__main__":
             .start()
         
         # Wait for both
-        console_query.awaitTermination()
-        csv_query.awaitTermination()
-        
-        
-        console_query.awaitTermination()
+        # console_query.awaitTermination()
         csv_query.awaitTermination()
         
     except KeyboardInterrupt:
         print("\n🛑 Stopping streaming...")
-        console_query.stop()
+        # console_query.stop()
         csv_query.stop()
         
     except Exception as e:

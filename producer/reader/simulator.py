@@ -12,7 +12,7 @@ producer = KafkaProducer(
     value_serializer=lambda v: json.dumps(v).encode('utf-8')
 )
 
-pcap_file = '/app/data/SAT-01-12-2018_0817.pcap'
+pcap_file = '/app/data/test12.pcap'
 start_time = None
 real_start = time.perf_counter()
 sent_count = 0
