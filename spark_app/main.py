@@ -1027,6 +1027,76 @@ def foreach_batch_function(df, epoch_id):
         print(f"❌ Error in foreach_batch_function: {e}")
         traceback.print_exc()
 
+def foreach_batch_to_ndjson(df, epoch_id):
+    """
+    Enhanced NDJSON writer with duplicate column handling
+    """
+    if not df.isEmpty():
+        try:
+            os.makedirs(output_dir, exist_ok=True)
+            output_path = os.path.join(output_dir, f"batch_{epoch_id}.ndjson")
+            
+            # ✅ Clean duplicate columns first
+            df_clean = clean_dataframe_columns(df)
+            
+            # Convert to Pandas
+            pandas_df = df_clean.toPandas()
+            
+            # ✅ Additional safety check
+            if len(pandas_df.columns) != len(set(pandas_df.columns)):
+                print(f"⚠️ Still have duplicate columns after cleaning")
+                # Force remove duplicates
+                pandas_df = pandas_df.loc[:, ~pandas_df.columns.duplicated()]
+            
+            # ✅ Clean data before writing
+            # Remove rows with all null values
+            pandas_df = pandas_df.dropna(how='all')
+            
+            # Replace inf/-inf with null
+            pandas_df = pandas_df.replace([float('inf'), float('-inf')], None)
+            
+            if len(pandas_df) > 0:
+                # Write to NDJSON
+                pandas_df.to_json(output_path, orient='records', lines=True, date_format='iso')
+                print(f"✅ Wrote {len(pandas_df)} records to NDJSON batch {epoch_id}: {output_path}")
+            else:
+                print(f"⚠️ No valid records to write for batch {epoch_id}")
+                
+        except Exception as e:
+            print(f"❌ Error writing NDJSON batch {epoch_id}: {e}")
+            # Enhanced debug information
+            try:
+                pandas_df = df.toPandas()
+                print(f"📊 DataFrame shape: {pandas_df.shape}")
+                print(f"📊 DataFrame columns: {pandas_df.columns.tolist()}")
+                print(f"📊 Duplicate columns: {pandas_df.columns.duplicated().sum()}")
+                print(f"📊 Column value counts: {pandas_df.columns.value_counts()}")
+            except Exception as debug_e:
+                print(f"❌ Debug error: {debug_e}")
+
+def clean_dataframe_columns(df):
+    """
+    Remove duplicate columns from Spark DataFrame
+    """
+    try:
+        # Get unique columns while preserving order
+        unique_columns = []
+        seen = set()
+        
+        for col_name in df.columns:
+            if col_name not in seen:
+                unique_columns.append(col_name)
+                seen.add(col_name)
+        
+        if len(unique_columns) < len(df.columns):
+            print(f"⚠️ Removing {len(df.columns) - len(unique_columns)} duplicate columns")
+            df = df.select(*unique_columns)
+        
+        return df
+    except Exception as e:
+        print(f"❌ Error cleaning columns: {e}")
+        return df
+
 # ✅ MODIFY THE MAIN SECTION
 if __name__ == "__main__":
     # Set environment variables
@@ -1148,22 +1218,33 @@ if __name__ == "__main__":
         labeled_df = predictions.withColumn("Label", when(col("prediction") == 1.0, "DDoS").otherwise("Normal"))
 
         # ✅ Bây giờ labeled_df có đầy đủ cột bao gồm flow_id
-        csv_query = labeled_df.filter(col("flow_id").contains("_TIMEOUT")) \
-            .writeStream \
+        # csv_query = labeled_df.filter(col("flow_id").contains("_TIMEOUT")) \
+        #     .writeStream \
+        #     .outputMode("update") \
+        #     .foreachBatch(foreach_batch_function) \
+        #     .trigger(processingTime='5 seconds') \
+        #     .option("checkpointLocation", checkpoint_dir + "_csv") \
+        #     .start()
+        
+        # # Wait for both
+        # # console_query.awaitTermination()
+        # csv_query.awaitTermination()
+        
+        # ✅ Write to NDJSON
+        ndjson_query = labeled_df.writeStream \
             .outputMode("update") \
-            .foreachBatch(foreach_batch_function) \
+            .foreachBatch(foreach_batch_to_ndjson) \
             .trigger(processingTime='5 seconds') \
-            .option("checkpointLocation", checkpoint_dir + "_csv") \
+            .option("checkpointLocation", checkpoint_dir + "_ndjson") \
             .start()
-        
-        # Wait for both
-        # console_query.awaitTermination()
-        csv_query.awaitTermination()
-        
+
+        ndjson_query.awaitTermination()
+
     except KeyboardInterrupt:
         print("\n🛑 Stopping streaming...")
         # console_query.stop()
-        csv_query.stop()
+        # csv_query.stop()
+        ndjson_query.stop()
         
     except Exception as e:
         print(f"❌ Error: {e}")

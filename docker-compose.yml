@@ -99,3 +99,37 @@ services:
       - kafka
       - spark-master
       - spark-worker
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.2
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.transport.ssl.enabled=false
+    ports:
+      - "9200:9200"
+    networks:
+      - ddos-net
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.12.2
+    container_name: kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    networks:
+      - ddos-net
+    depends_on:
+      - elasticsearch
+
+  uploader:
+    build:
+      context: ./docker/uploader
+    container_name: uploader
+    depends_on:
+      - elasticsearch
+    networks:
+      - ddos-net
+    volumes:
+      - ./data:/app/data
